@@ -1,0 +1,21 @@
+{
+  "name": "news-digest",
+  "version": "1.0.0",
+  "description": "AI-powered daily news digest",
+  "main": "src/index.js",
+  "scripts": {
+    "start": "node src/index.js",
+    "dev": "node --watch src/index.js"
+  },
+  "dependencies": {
+    "@anthropic-ai/sdk": "^0.36.3",
+    "@google/generative-ai": "^0.21.0",
+    "better-sqlite3": "^11.7.0",
+    "dotenv": "^16.4.7",
+    "express": "^4.21.2",
+    "node-cron": "^3.0.3",
+    "nodemailer": "^8.0.1",
+    "openai": "^4.85.4",
+    "rss-parser": "^3.13.0"
+  }
+}

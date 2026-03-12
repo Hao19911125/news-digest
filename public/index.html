@@ -1,0 +1,517 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>NewsDigest</title>
+  <link rel="stylesheet" href="/style.css">
+</head>
+<body>
+<div id="app">
+  <!-- Sidebar -->
+  <nav class="sidebar">
+    <div class="sidebar-logo"><span>📰</span> NewsDigest</div>
+    <a class="nav-item" :class="{active: page==='dashboard'}" @click="goto('dashboard')">
+      <span class="nav-icon">🏠</span> 仪表板
+    </a>
+    <a class="nav-item" :class="{active: page==='chat'}" @click="goto('chat')">
+      <span class="nav-icon">💬</span> AI 对话
+    </a>
+    <a class="nav-item" :class="{active: page==='preferences'}" @click="goto('preferences')">
+      <span class="nav-icon">⭐</span> 话题偏好
+    </a>
+    <a class="nav-item" :class="{active: page==='prompt'}" @click="goto('prompt')">
+      <span class="nav-icon">✏️</span> 提示词
+    </a>
+    <a class="nav-item" :class="{active: page==='history'}" @click="goto('history')">
+      <span class="nav-icon">📋</span> 历史推送
+    </a>
+    <a class="nav-item" :class="{active: page==='settings'}" @click="goto('settings')">
+      <span class="nav-icon">⚙️</span> 设置
+    </a>
+  </nav>
+
+  <!-- Main content -->
+  <main class="main">
+
+    <!-- ── DASHBOARD ───────────────────────────── -->
+    <div v-if="page==='dashboard'">
+      <div class="page-title">仪表板</div>
+      <div class="stats">
+        <div class="stat-box">
+          <div class="stat-label">已推送</div>
+          <div class="stat-value">{{ stats.total }}</div>
+          <div class="stat-sub">次</div>
+        </div>
+        <div class="stat-box">
+          <div class="stat-label">下次推送</div>
+          <div class="stat-value" style="font-size:16px;padding-top:4px">{{ stats.nextRun }}</div>
+          <div class="stat-sub">HKT</div>
+        </div>
+        <div class="stat-box">
+          <div class="stat-label">话题偏好</div>
+          <div class="stat-value">{{ stats.prefs }}</div>
+          <div class="stat-sub">条</div>
+        </div>
+      </div>
+
+      <!-- Run status card -->
+      <div class="card" style="margin-bottom:16px">
+        <div class="flex justify-between items-center">
+          <div class="flex items-center gap-2">
+            <span class="dot" :class="statusDotClass(runStatus)"></span>
+            <span class="text-sm" style="font-weight:500">
+              {{ runStatus?.running ? '推送进行中' : '推送状态' }}
+            </span>
+          </div>
+          <button class="btn btn-primary btn-sm" @click="triggerDigest" :disabled="triggering || runStatus?.running">
+            <span v-if="triggering || runStatus?.running" class="spinner"></span>
+            <span v-else>▶</span>
+            立即触发
+          </button>
+        </div>
+        <div style="margin-top:10px;font-size:13px;color:var(--muted)">
+          {{ statusText(runStatus) }}
+        </div>
+        <!-- Progress steps when running -->
+        <div v-if="runStatus?.running" style="margin-top:12px;display:flex;gap:8px;align-items:center;flex-wrap:wrap">
+          <span v-for="s in ['fetching','analyzing','tts','sending']" :key="s"
+            :style="{
+              padding:'3px 10px', borderRadius:'99px', fontSize:'12px', fontWeight:'600',
+              background: runStatus.step === s ? 'var(--accent)' : 'var(--bg)',
+              color: runStatus.step === s ? '#fff' : 'var(--muted)',
+            }">
+            {{ {fetching:'抓取新闻', analyzing:'AI 分析', tts:'语音播报', sending:'发送邮件'}[s] }}
+          </span>
+        </div>
+        <!-- Error detail -->
+        <div v-if="runStatus && !runStatus.running && runStatus.lastRun?.ok === false"
+          style="margin-top:10px;padding:8px 12px;background:#fff5f5;border-radius:6px;font-size:12px;color:var(--danger);word-break:break-all">
+          {{ runStatus.lastRun.error }}
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="flex justify-between items-center" style="margin-bottom:16px">
+          <div class="card-title" style="margin:0">最近推送</div>
+        </div>
+        <div v-if="!latest" class="empty-state">暂无推送记录</div>
+        <div v-else>
+          <div class="text-xs text-muted" style="margin-bottom:12px">
+            {{ latest.period === 'morning' ? '早间' : '晚间' }} · {{ formatDate(latest.sent_at) }}
+            · {{ latest.provider }}/{{ latest.model }}
+            <span v-if="latest.token_usage"> · {{ latest.token_usage.input_tokens + latest.token_usage.output_tokens }} tokens</span>
+          </div>
+          <div v-for="item in (latest.news_data || []).slice(0,10)" :key="item.rank" class="news-item">
+            <div class="news-rank">#{{ item.rank }} · {{ item.source }}</div>
+            <div class="news-title">
+              <a :href="item.url" target="_blank">{{ item.title }}</a>
+            </div>
+            <div class="news-summary">{{ item.summary }}</div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ── CHAT ─────────────────────────────────── -->
+    <div v-if="page==='chat'" style="height:calc(100vh - 64px);display:flex;flex-direction:column">
+      <div class="page-title" style="margin-bottom:16px">AI 对话</div>
+      <div class="card" style="flex:1;display:flex;flex-direction:column;overflow:hidden">
+        <div class="chat-messages" ref="chatEl">
+          <div v-if="!chatMessages.length" class="empty-state" style="padding:24px">
+            向 AI 说出你的偏好，例如：<br>
+            "我喜欢 AI 和科技新闻" · "摘要写长一点，200 字" · "不要体育新闻"
+          </div>
+          <div v-for="msg in chatMessages" :key="msg.id">
+            <div class="chat-bubble" :class="msg.role">{{ msg.content }}</div>
+            <div v-if="msg.actions && msg.actions.length" class="chat-action">
+              <span v-for="a in msg.actions" :key="a.type" class="chat-action-tag" style="margin-right:4px">
+                {{ actionLabel(a) }}
+              </span>
+            </div>
+          </div>
+          <div v-if="chatLoading" style="display:flex;gap:8px;align-items:center;padding:4px 0">
+            <span class="spinner"></span><span class="text-muted text-sm">AI 思考中...</span>
+          </div>
+        </div>
+        <div class="chat-input-row">
+          <input class="form-input" v-model="chatInput" placeholder="输入消息..." @keydown.enter.exact="sendChat" :disabled="chatLoading">
+          <button class="btn btn-primary" @click="sendChat" :disabled="chatLoading || !chatInput.trim()">发送</button>
+          <button class="btn btn-secondary" @click="clearChat" title="清除对话">清除</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- ── PREFERENCES ───────────────────────────── -->
+    <div v-if="page==='preferences'">
+      <div class="page-title">话题偏好</div>
+      <div class="card">
+        <div class="card-title">新增偏好</div>
+        <div class="form-row">
+          <div class="form-group">
+            <label class="form-label">类型</label>
+            <select class="form-select" v-model="newPref.type">
+              <option value="boost">偏好（加权）</option>
+              <option value="suppress">屏蔽</option>
+              <option value="minimum">最少几条</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label class="form-label">话题关键词</label>
+            <input class="form-input" v-model="newPref.topic" placeholder="例：AI、科技、体育…">
+          </div>
+        </div>
+        <div class="form-group" v-if="newPref.type==='minimum'">
+          <label class="form-label">最少条数</label>
+          <input class="form-input" type="number" v-model.number="newPref.value" min="1" max="10" style="width:100px">
+        </div>
+        <button class="btn btn-primary" @click="addPref" :disabled="!newPref.topic.trim()">新增</button>
+      </div>
+      <div class="card">
+        <div class="card-title">当前偏好列表</div>
+        <div v-if="!prefs.length" class="empty-state">暂无偏好设置</div>
+        <table v-else class="table">
+          <thead><tr><th>类型</th><th>话题</th><th>值</th><th>操作</th></tr></thead>
+          <tbody>
+            <tr v-for="p in prefs" :key="p.id">
+              <td><span class="badge" :class="'badge-'+p.type">{{ prefTypeLabel(p.type) }}</span></td>
+              <td>{{ p.topic }}</td>
+              <td>{{ p.type==='minimum' ? p.value+'条' : '—' }}</td>
+              <td><button class="btn btn-danger btn-sm" @click="removePref(p.id)">删除</button></td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- ── PROMPT ────────────────────────────────── -->
+    <div v-if="page==='prompt'">
+      <div class="page-title">提示词编辑器</div>
+
+      <div class="tabs" style="margin-bottom:16px">
+        <div class="tab" :class="{active:promptName==='default'}" @click="switchPrompt('default')">📰 新闻摘要</div>
+        <div class="tab" :class="{active:promptName==='tts'}"     @click="switchPrompt('tts')">🎙️ 语音播报</div>
+      </div>
+
+      <div class="card">
+        <div class="flex justify-between items-center" style="margin-bottom:12px">
+          <div>
+            <div class="text-sm" v-if="prompt">最近修改：{{ prompt.updated_by }} · {{ formatDate(prompt.updated_at) }}</div>
+          </div>
+          <button class="btn btn-primary" @click="savePrompt" :disabled="promptSaving">
+            <span v-if="promptSaving" class="spinner"></span>
+            保存
+          </button>
+        </div>
+        <p v-if="promptName==='default'" class="text-xs text-muted" style="margin-bottom:10px">必须保留 <code style="background:#f0f0f0;padding:1px 5px;border-radius:4px">{user_preferences}</code> 和 <code style="background:#f0f0f0;padding:1px 5px;border-radius:4px">{news_items}</code> 占位符</p>
+        <p v-if="promptName==='tts'" class="text-xs text-muted" style="margin-bottom:10px">必须保留 <code style="background:#f0f0f0;padding:1px 5px;border-radius:4px">{news_digest}</code> 占位符。AI 会将新闻摘要改写为口语化的播报稿，再由 TTS 引擎转为语音</p>
+        <textarea class="form-textarea" v-model="promptContent" style="min-height:360px"></textarea>
+      </div>
+    </div>
+
+    <!-- ── HISTORY ───────────────────────────────── -->
+    <div v-if="page==='history'">
+      <div class="page-title">历史推送</div>
+      <div v-if="!history.length" class="empty-state">暂无历史推送</div>
+      <div v-for="d in history" :key="d.id" class="card">
+        <div class="flex justify-between items-center" style="margin-bottom:12px">
+          <div>
+            <span style="font-weight:600">{{ d.period==='morning'?'早间':'晚间' }}</span>
+            <span class="text-muted text-sm" style="margin-left:10px">{{ formatDate(d.sent_at) }}</span>
+          </div>
+          <div class="text-xs text-muted">{{ d.provider }}/{{ d.model }}</div>
+        </div>
+        <div v-for="item in (d.news_data||[]).slice(0,5)" :key="item.rank" class="news-item">
+          <div class="news-rank">#{{ item.rank }}</div>
+          <div class="news-title"><a :href="item.url" target="_blank">{{ item.title }}</a></div>
+          <div class="news-summary">{{ item.summary }}</div>
+        </div>
+        <div v-if="(d.news_data||[]).length>5" class="text-xs text-muted" style="margin-top:8px">…还有 {{ d.news_data.length-5 }} 条</div>
+      </div>
+    </div>
+
+    <!-- ── SETTINGS ──────────────────────────────── -->
+    <div v-if="page==='settings'">
+      <div class="page-title">设置</div>
+
+      <div class="tabs">
+        <div class="tab" :class="{active:settingsTab==='ai'}"         @click="settingsTab='ai'">AI 模型</div>
+        <div class="tab" :class="{active:settingsTab==='tts'}"        @click="settingsTab='tts'">语音播报</div>
+        <div class="tab" :class="{active:settingsTab==='smtp'}"       @click="settingsTab='smtp'">邮箱 SMTP</div>
+        <div class="tab" :class="{active:settingsTab==='recipients'}" @click="settingsTab='recipients'">收件人</div>
+        <div class="tab" :class="{active:settingsTab==='feeds'}"      @click="settingsTab='feeds'">新闻源状态</div>
+      </div>
+
+      <!-- AI Settings -->
+      <div v-if="settingsTab==='ai'">
+        <div v-for="purpose in ['news','chat','tts']" :key="purpose" class="card">
+          <div class="card-title">{{ {news:'📰 新闻处理模型', chat:'💬 聊天模型', tts:'🎙️ 语音播报改写模型'}[purpose] }}</div>
+          <p v-if="purpose==='tts'" class="text-xs text-muted" style="margin-bottom:12px">用于将新闻摘要改写为口语化播报稿的 AI 模型（可选择较便宜的模型）</p>
+          <div class="form-group">
+            <label class="form-label">AI 提供商</label>
+            <div class="provider-grid">
+              <div v-for="p in providers" :key="p.id"
+                class="provider-btn" :class="{active: aiCfg[purpose].provider===p.id}"
+                @click="aiCfg[purpose].provider=p.id; aiCfg[purpose].model=p.defaultModel">
+                {{ p.label }}
+              </div>
+            </div>
+          </div>
+          <div class="form-row">
+            <div class="form-group">
+              <label class="form-label">模型名称</label>
+              <div class="flex gap-2">
+                <select v-if="availModels[purpose].length" class="form-select" v-model="aiCfg[purpose].model" style="flex:1">
+                  <option v-for="m in availModels[purpose]" :key="m" :value="m">{{ m }}</option>
+                </select>
+                <input v-else class="form-input" v-model="aiCfg[purpose].model" placeholder="如 claude-sonnet-4-6" style="flex:1">
+                <button class="btn btn-secondary btn-sm" @click="fetchModels(purpose)" :disabled="fetchingModels[purpose]" title="拉取可用模型">
+                  <span v-if="fetchingModels[purpose]" class="spinner"></span>
+                  <span v-else>⬇ 拉取模型</span>
+                </button>
+              </div>
+            </div>
+            <div class="form-group">
+              <label class="form-label">API Key</label>
+              <input class="form-input" v-model="aiCfg[purpose].api_key" type="password" placeholder="sk-...">
+            </div>
+          </div>
+          <div class="form-group" v-if="aiCfg[purpose].provider==='custom'">
+            <label class="form-label">Base URL</label>
+            <input class="form-input" v-model="aiCfg[purpose].base_url" placeholder="http://localhost:11434/v1">
+          </div>
+          <div class="flex gap-2">
+            <button class="btn btn-primary" @click="saveAi(purpose)">保存</button>
+            <button class="btn btn-secondary" @click="testAi(purpose)" :disabled="testingAi[purpose]">
+              <span v-if="testingAi[purpose]" class="spinner"></span>
+              测试连接
+            </button>
+          </div>
+        </div>
+      </div>
+
+      <!-- TTS Voice Settings -->
+      <div v-if="settingsTab==='tts'">
+        <div class="card">
+          <div class="card-title">🎙️ 语音播报配置</div>
+          <p class="text-xs text-muted" style="margin-bottom:16px">启用后，每次推送会自动生成语音播报，邮件中会出现「收听语音播报」按钮</p>
+
+          <div class="form-group">
+            <label class="form-label">启用语音播报</label>
+            <label style="display:flex;align-items:center;gap:8px;cursor:pointer">
+              <input type="checkbox" v-model="ttsCfg.enabled">
+              <span class="text-sm">{{ ttsCfg.enabled ? '已启用' : '已关闭' }}</span>
+            </label>
+          </div>
+
+          <div class="form-group">
+            <label class="form-label">语音选择</label>
+            <select class="form-select" v-model="ttsCfg.voice">
+              <option v-for="v in ttsVoices" :key="v.id" :value="v.id">{{ v.label }} ({{ v.id }})</option>
+            </select>
+          </div>
+
+          <div class="form-row">
+            <div class="form-group">
+              <label class="form-label">语速</label>
+              <select class="form-select" v-model="ttsCfg.rate">
+                <option value="-30%">较慢 (-30%)</option>
+                <option value="-15%">稍慢 (-15%)</option>
+                <option value="+0%">正常</option>
+                <option value="+15%">稍快 (+15%)</option>
+                <option value="+30%">较快 (+30%)</option>
+              </select>
+            </div>
+            <div class="form-group">
+              <label class="form-label">音调</label>
+              <select class="form-select" v-model="ttsCfg.pitch">
+                <option value="-20Hz">偏低 (-20Hz)</option>
+                <option value="-10Hz">稍低 (-10Hz)</option>
+                <option value="+0Hz">正常</option>
+                <option value="+10Hz">稍高 (+10Hz)</option>
+                <option value="+20Hz">偏高 (+20Hz)</option>
+              </select>
+            </div>
+          </div>
+
+          <div class="form-group">
+            <label class="form-label">音频访问地址 (Audio Base URL)</label>
+            <input class="form-input" v-model="ttsCfg.audio_base_url" placeholder="如 https://haosilly.site:3100">
+            <p class="text-xs text-muted" style="margin-top:4px">邮件中播放按钮会链接到此地址 + /audio/文件名。需确保此地址从外网可访问。如果 NewsDigest 端口已通过 nginx 反代，填反代后的地址即可</p>
+          </div>
+
+          <button class="btn btn-primary" @click="saveTtsCfg">保存</button>
+        </div>
+      </div>
+
+      <!-- SMTP Info -->
+      <div v-if="settingsTab==='smtp'" class="card">
+        <div class="card-title">邮箱配置（请在 .env 文件中修改）</div>
+        <table class="table" v-if="smtp.host">
+          <tbody>
+            <tr><td class="text-muted" style="width:140px">SMTP Host</td><td>{{ smtp.host }}</td></tr>
+            <tr><td class="text-muted">SMTP Port</td><td>{{ smtp.port }}</td></tr>
+            <tr><td class="text-muted">账号</td><td>{{ smtp.user || '未配置' }}</td></tr>
+            <tr><td class="text-muted">授权码</td><td>{{ smtp.pass || '未配置' }}</td></tr>
+            <tr>
+              <td class="text-muted">收件地址</td>
+              <td>
+                <span v-if="recipients.filter(r=>r.enabled).length">
+                  <span v-for="(r, i) in recipients.filter(r=>r.enabled)" :key="r.id">
+                    {{ r.label ? r.label + ' &lt;' + r.email + '&gt;' : r.email }}<span v-if="i < recipients.filter(r=>r.enabled).length - 1">、</span>
+                  </span>
+                  <span class="text-xs text-muted">（由收件人列表决定）</span>
+                </span>
+                <span v-else>{{ smtp.mail_to || '未配置' }}</span>
+              </td>
+            </tr>
+          </tbody>
+        </table>
+        <div class="empty-state" v-else>未配置 SMTP</div>
+      </div>
+
+      <!-- Recipients -->
+      <div v-if="settingsTab==='recipients'">
+        <div class="card">
+          <div class="card-title">添加收件人</div>
+          <div class="form-row">
+            <div class="form-group">
+              <label class="form-label">显示名称（可选）</label>
+              <input class="form-input" v-model="newRecipient.label" placeholder="如 张三">
+            </div>
+            <div class="form-group">
+              <label class="form-label">邮箱地址</label>
+              <input class="form-input" v-model="newRecipient.email" placeholder="user@example.com" type="email">
+            </div>
+          </div>
+          <button class="btn btn-primary" @click="addNewRecipient" :disabled="!newRecipient.email.trim()">添加</button>
+        </div>
+
+        <div class="card">
+          <div class="card-title">收件人列表 ({{ recipients.length }})</div>
+          <div v-if="!recipients.length" class="empty-state">
+            暂无收件人，将使用 .env 中的 MAIL_TO 地址
+          </div>
+          <table v-else class="table">
+            <thead><tr><th>名称</th><th>邮箱</th><th>状态</th><th>操作</th></tr></thead>
+            <tbody>
+              <tr v-for="r in recipients" :key="r.id">
+                <template v-if="editingRecipient && editingRecipient.id === r.id">
+                  <td><input class="form-input" v-model="editingRecipient.label" placeholder="显示名称"></td>
+                  <td><input class="form-input" v-model="editingRecipient.email" type="email"></td>
+                  <td></td>
+                  <td>
+                    <div class="flex gap-2">
+                      <button class="btn btn-primary btn-sm" @click="saveRecipient">保存</button>
+                      <button class="btn btn-secondary btn-sm" @click="editingRecipient=null">取消</button>
+                    </div>
+                  </td>
+                </template>
+                <template v-else>
+                  <td>{{ r.label || '—' }}</td>
+                  <td>{{ r.email }}</td>
+                  <td>
+                    <span class="flex items-center gap-2">
+                      <span class="dot" :class="r.enabled ? 'dot-green' : 'dot-gray'"></span>
+                      {{ r.enabled ? '启用' : '停用' }}
+                    </span>
+                  </td>
+                  <td>
+                    <div class="flex gap-2">
+                      <button class="btn btn-secondary btn-sm" @click="startEditRecipient(r)">编辑</button>
+                      <button class="btn btn-secondary btn-sm" @click="toggleRecipient(r)">{{ r.enabled ? '停用' : '启用' }}</button>
+                      <button class="btn btn-danger btn-sm" @click="removeRecipient(r.id)">删除</button>
+                    </div>
+                  </td>
+                </template>
+              </tr>
+            </tbody>
+          </table>
+          <p v-if="recipients.length" class="text-xs text-muted" style="margin-top:12px">
+            提示：停用的收件人不会收到推送。若列表为空，将回退使用 .env 的 MAIL_TO。
+          </p>
+        </div>
+      </div>
+
+      <!-- Feeds -->
+      <div v-if="settingsTab==='feeds'">
+        <div class="card">
+          <div class="card-title">添加新闻源</div>
+          <div class="form-row">
+            <div class="form-group">
+              <label class="form-label">名称</label>
+              <input class="form-input" v-model="newFeed.label" placeholder="如 Reuters World">
+            </div>
+            <div class="form-group">
+              <label class="form-label">RSS URL</label>
+              <input class="form-input" v-model="newFeed.url" placeholder="https://...">
+            </div>
+          </div>
+          <div class="form-row">
+            <div class="form-group">
+              <label class="form-label">国家/类别</label>
+              <input class="form-input" v-model="newFeed.country" placeholder="International">
+            </div>
+            <div class="form-group">
+              <label class="form-label">语言</label>
+              <select class="form-select" v-model="newFeed.lang">
+                <option value="en">英文 (en)</option>
+                <option value="zh">中文 (zh)</option>
+              </select>
+            </div>
+          </div>
+          <div class="flex gap-2 items-center">
+            <button class="btn btn-secondary" @click="testFeed('new', newFeed.url)" :disabled="!newFeed.url || feedTestResult['new']?.testing">
+              <span v-if="feedTestResult['new']?.testing" class="spinner"></span>
+              测试连接
+            </button>
+            <span v-if="feedTestResult['new']?.ok" class="text-sm" style="color:var(--success)">✓ 可用 ({{ feedTestResult['new'].count }} 条)</span>
+            <span v-else-if="feedTestResult['new']?.ok === false" class="text-sm" style="color:var(--danger)">✗ {{ feedTestResult['new'].error }}</span>
+            <button class="btn btn-primary" @click="addNewFeed" :disabled="!newFeed.label || !newFeed.url" style="margin-left:auto">添加</button>
+          </div>
+        </div>
+
+        <div class="card">
+          <div class="card-title">当前新闻源 ({{ feeds.length }})</div>
+          <table class="table">
+            <thead><tr><th>名称</th><th>语言</th><th>上次抓取</th><th>操作</th></tr></thead>
+            <tbody>
+              <tr v-for="f in feeds" :key="f.id">
+                <td>
+                  <div style="font-weight:500">{{ f.label }}</div>
+                  <div class="text-xs text-muted" style="word-break:break-all">{{ f.url }}</div>
+                </td>
+                <td>{{ f.lang }}</td>
+                <td>
+                  <span v-if="!f.status" class="flex items-center gap-2"><span class="dot dot-gray"></span> 未抓取</span>
+                  <span v-else-if="f.status.ok" class="flex items-center gap-2"><span class="dot dot-green"></span> {{ f.status.count }} 条</span>
+                  <span v-else class="flex items-center gap-2" :title="f.status.error"><span class="dot dot-red"></span> 失败</span>
+                  <span v-if="feedTestResult[f.id]?.testing" class="text-xs text-muted"> 测试中...</span>
+                  <span v-else-if="feedTestResult[f.id]?.ok" class="text-xs" style="color:var(--success)"> ✓ {{ feedTestResult[f.id].count }} 条</span>
+                  <span v-else-if="feedTestResult[f.id]?.ok === false" class="text-xs" style="color:var(--danger)" :title="feedTestResult[f.id].error"> ✗ 失败</span>
+                </td>
+                <td>
+                  <div class="flex gap-2">
+                    <button class="btn btn-secondary btn-sm" @click="testFeed(f.id, f.url)" :disabled="feedTestResult[f.id]?.testing">测试</button>
+                    <button class="btn btn-danger btn-sm" @click="removeFeed(f.id)">删除</button>
+                  </div>
+                </td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+
+  </main>
+
+  <!-- Toast container -->
+  <div class="toast-wrap">
+    <div v-for="t in toasts" :key="t.id" class="toast" :class="'toast-'+t.type">{{ t.msg }}</div>
+  </div>
+</div>
+
+<script src="https://unpkg.com/vue@3/dist/vue.global.prod.js"></script>
+<script src="/app.js"></script>
+</body>
+</html>
