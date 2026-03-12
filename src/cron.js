@@ -10,44 +10,63 @@ const { saveDigest, cleanupOldDigests, getRecentDigests } = require('./db');
 // ── Deduplication helpers ────────────────────────────────────────────────────
 
 /**
- * Jaccard similarity on word tokens (case-insensitive).
+ * Jaccard similarity using character bigrams + English word tokens.
+ * Bigrams work for Chinese (滑动双字窗口); word tokens work for English.
+ * Much more reliable than single-character tokenization for CJK text.
  */
 function textSimilarity(a, b) {
-  const tokenize = str => new Set((str.toLowerCase().match(/\p{L}+/gu) || []));
+  const tokenize = str => {
+    const tokens = new Set();
+    const s = str.toLowerCase();
+    // English word tokens (≥2 chars)
+    for (const w of (s.match(/[a-z0-9]{2,}/g) || [])) tokens.add('w:' + w);
+    // Character bigrams — effective for Chinese/CJK scripts
+    const chars = s.replace(/\s+/g, '');
+    for (let i = 0; i < chars.length - 1; i++) tokens.add('b:' + chars[i] + chars[i + 1]);
+    return tokens;
+  };
   const setA = tokenize(a);
   const setB = tokenize(b);
+  if (!setA.size || !setB.size) return 0;
   let intersection = 0;
-  for (const t of setA) { if (setB.has(t)) intersection++; }
+  for (const t of setA) if (setB.has(t)) intersection++;
   const union = setA.size + setB.size - intersection;
   return union === 0 ? 0 : intersection / union;
 }
 
 /**
- * Remove items whose title+summary overlaps >threshold with any item
- * from the previous digest. Re-ranks the survivors from 1.
+ * Remove items from newItems that already appeared in the previous digest.
+ * Two-stage check:
+ *   1. URL exact match  — same article, zero ambiguity
+ *   2. Bigram similarity — same story reworded or from different source
+ * Re-ranks the survivors from 1.
  */
-function deduplicateItems(newItems, previousItems, threshold = 0.7) {
+function deduplicateItems(newItems, previousItems, threshold = 0.6) {
   if (!previousItems || !previousItems.length) return newItems;
+
+  const prevUrls = new Set(previousItems.map(i => i.url).filter(Boolean));
 
   const kept = [];
   const skipped = [];
 
   for (const item of newItems) {
+    // Stage 1: URL exact match
+    if (item.url && prevUrls.has(item.url)) {
+      skipped.push(item.title);
+      continue;
+    }
+    // Stage 2: text similarity
     const text = `${item.title} ${item.summary}`;
     const isDup = previousItems.some(prev => {
       const prevText = `${prev.title} ${prev.summary}`;
       return textSimilarity(text, prevText) > threshold;
     });
-
-    if (isDup) {
-      skipped.push(item.title);
-    } else {
-      kept.push(item);
-    }
+    if (isDup) skipped.push(item.title);
+    else kept.push(item);
   }
 
   if (skipped.length) {
-    console.log(`[cron] Deduplicated ${skipped.length} item(s) with >${threshold * 100}% overlap with previous digest:`);
+    console.log(`[cron] Deduplicated ${skipped.length} item(s) from previous digest:`);
     skipped.forEach(t => console.log(`  - ${t}`));
   }
 
