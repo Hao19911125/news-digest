@@ -1,12 +1,29 @@
 'use strict';
 
-const { createApp, ref, reactive, computed, nextTick, onMounted } = Vue;
+const { createApp, ref, reactive, computed, nextTick, onMounted, onUnmounted } = Vue;
 
 createApp({
   setup() {
     // ── Navigation ───────────────────────────────
     const page = ref('dashboard');
     function goto(p) { page.value = p; loadPage(p); }
+
+    // ── Live clock (HKT) ─────────────────────────
+    const now = ref(new Date());
+    let clockTimer = null;
+    const hktNow = computed(() => {
+      return new Date(now.value.toLocaleString('en-US', { timeZone: 'Asia/Hong_Kong' }));
+    });
+    const clockDate = computed(() => {
+      const d = hktNow.value;
+      const days = ['日','一','二','三','四','五','六'];
+      return `${d.getFullYear()}年${d.getMonth()+1}月${d.getDate()}日 · 周${days[d.getDay()]}`;
+    });
+    const clockHM = computed(() => {
+      const d = hktNow.value;
+      return `${String(d.getHours()).padStart(2,'0')}:${String(d.getMinutes()).padStart(2,'0')}`;
+    });
+    const clockSec = computed(() => String(hktNow.value.getSeconds()).padStart(2, '0'));
 
     // ── Toast ────────────────────────────────────
     const toasts = ref([]);
@@ -407,10 +424,14 @@ createApp({
       if (p === 'settings')    loadSettings();
     }
 
-    onMounted(() => loadPage('dashboard'));
+    onMounted(() => {
+      clockTimer = setInterval(() => { now.value = new Date(); }, 1000);
+      loadPage('dashboard');
+    });
+    onUnmounted(() => { if (clockTimer) clearInterval(clockTimer); });
 
     return {
-      page, goto,
+      page, goto, clockDate, clockHM, clockSec,
       toasts,
       // dashboard
       latest, stats, triggering, triggerDigest, runStatus, statusDotClass, statusText, stepLabel,

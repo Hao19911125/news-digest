@@ -64,10 +64,10 @@ function renderVerse(verse) {
           <table width="100%" cellpadding="0" cellspacing="0"><tr>
             <td style="width:4px;background:#9c7a3c;border-radius:2px;"></td>
             <td style="padding-left:16px;">
-              <div style="font-size:11px;color:#9c7a3c;text-transform:uppercase;letter-spacing:1.5px;font-family:Georgia,serif;margin-bottom:8px;">✦ 今日经文 ✦</div>
-              <p style="margin:0 0 6px;font-size:15px;line-height:1.8;color:#3a2e1e;font-style:italic;font-family:Georgia,'Times New Roman',serif;">"${verse.text}"</p>
-              <div style="font-size:13px;color:#8a6c3a;font-weight:600;font-family:Georgia,serif;margin-bottom:8px;">—— ${verse.reference}</div>
-              <p style="margin:0;font-size:12px;color:#7a6b52;line-height:1.6;font-family:Georgia,serif;">${verse.reason}</p>
+              <div style="font-size:13px;color:#9c7a3c;text-transform:uppercase;letter-spacing:1.5px;font-family:Georgia,serif;margin-bottom:8px;">✦ 今日经文 ✦</div>
+              <p style="margin:0 0 6px;font-size:17px;line-height:1.8;color:#3a2e1e;font-style:italic;font-family:Georgia,'Times New Roman',serif;">"${verse.text}"</p>
+              <div style="font-size:15px;color:#8a6c3a;font-weight:600;font-family:Georgia,serif;margin-bottom:8px;">—— ${verse.reference}</div>
+              <p style="margin:0;font-size:14px;color:#7a6b52;line-height:1.6;font-family:Georgia,serif;">${verse.reason}</p>
             </td>
           </tr></table>
         </td></tr>
@@ -103,11 +103,11 @@ function renderNewsItem(item, i, cidMap) {
               <span style="font-weight:700;">§${rank}</span>${item.source ? ' · ' + item.source : ''}
             </div>
             <a href="${item.url || '#'}" style="text-decoration:none;">
-              <div style="margin:0 0 6px;font-size:16px;line-height:1.45;color:#2c1810;font-weight:700;font-family:Georgia,'Times New Roman',serif;">
+              <div style="margin:0 0 6px;font-size:18px;line-height:1.45;color:#2c1810;font-weight:700;font-family:Georgia,'Times New Roman',serif;">
                 ${item.title}
               </div>
             </a>
-            <p style="margin:0 0 8px;color:#5a4a35;font-size:13px;line-height:1.7;font-family:Georgia,'Times New Roman',serif;">
+            <p style="margin:0 0 8px;color:#5a4a35;font-size:15px;line-height:1.7;font-family:Georgia,'Times New Roman',serif;">
               ${item.summary}
             </p>
             <a href="${item.url || '#'}" style="font-size:12px;color:#8b6914;text-decoration:none;font-family:Georgia,serif;letter-spacing:0.3px;">
@@ -135,18 +135,18 @@ function renderPage(items, pageNum, totalPages, label, dateStr, cidMap, audioUrl
   <table width="100%" cellpadding="0" cellspacing="0" style="border-collapse:collapse;max-width:660px;margin:0 auto 32px;background:#faf4e8;border:1px solid #c8b07a;border-radius:3px;box-shadow:2px 3px 12px rgba(80,60,20,0.12),inset 0 0 60px rgba(200,180,130,0.15);">
     <!-- Top edge decoration -->
     <tr><td class="page-pad" style="padding:28px 48px 0;text-align:center;">
-      <div style="font-size:11px;color:#b8a070;letter-spacing:4px;font-family:Georgia,serif;">${ornament}</div>
+      <div style="font-size:13px;color:#b8a070;letter-spacing:4px;font-family:Georgia,serif;">${ornament}</div>
     </td></tr>
 
     <!-- Page title -->
     <tr><td class="page-pad" style="padding:12px 48px 6px;text-align:center;">
-      <div style="font-size:22px;font-weight:700;color:#3a2510;font-family:Georgia,'Times New Roman',serif;letter-spacing:1px;">
+      <div style="font-size:24px;font-weight:700;color:#3a2510;font-family:Georgia,'Times New Roman',serif;letter-spacing:1px;">
         𝕹𝖊𝖜𝖘𝕯𝖎𝖌𝖊𝖘𝖙 ${label}简报
       </div>
     </td></tr>
 
     <tr><td class="page-pad" style="padding:0 48px 16px;text-align:center;">
-      <div style="font-size:12px;color:#9c8a65;font-family:Georgia,serif;letter-spacing:0.5px;">${dateStr}</div>
+      <div style="font-size:14px;color:#9c8a65;font-family:Georgia,serif;letter-spacing:0.5px;">${dateStr}</div>
     </td></tr>
 
     <!-- Separator line -->
@@ -178,14 +178,14 @@ function renderPage(items, pageNum, totalPages, label, dateStr, cidMap, audioUrl
 
     <!-- Page footer -->
     <tr><td class="page-pad" style="padding:8px 48px 24px;text-align:center;">
-      <div style="font-size:11px;color:#b8a070;font-family:Georgia,serif;letter-spacing:2px;">
+      <div style="font-size:13px;color:#b8a070;font-family:Georgia,serif;letter-spacing:2px;">
         — 第 ${pageNum} / ${totalPages} 页 —
       </div>
     </td></tr>
 
     <!-- Bottom edge decoration -->
     <tr><td class="page-pad" style="padding:0 48px 20px;text-align:center;">
-      <div style="font-size:11px;color:#b8a070;letter-spacing:4px;font-family:Georgia,serif;">${ornament}</div>
+      <div style="font-size:13px;color:#b8a070;letter-spacing:4px;font-family:Georgia,serif;">${ornament}</div>
     </td></tr>
   </table>`;
 }
@@ -211,14 +211,14 @@ function renderHtml(items, period, verse, cidMap, audioUrl) {
   const versePage = verse ? `
   <table width="100%" cellpadding="0" cellspacing="0" style="border-collapse:collapse;max-width:660px;margin:0 auto 32px;background:#faf4e8;border:1px solid #c8b07a;border-radius:3px;box-shadow:2px 3px 12px rgba(80,60,20,0.12),inset 0 0 60px rgba(200,180,130,0.15);">
     <tr><td class="page-pad" style="padding:28px 48px 0;text-align:center;">
-      <div style="font-size:11px;color:#b8a070;letter-spacing:4px;font-family:Georgia,serif;">═══════════════ ✦ ═══════════════</div>
+      <div style="font-size:13px;color:#b8a070;letter-spacing:4px;font-family:Georgia,serif;">═══════════════ ✦ ═══════════════</div>
     </td></tr>
     ${renderVerse(verse)}
     <tr><td class="page-pad" style="padding:8px 48px 24px;text-align:center;">
-      <div style="font-size:11px;color:#b8a070;font-family:Georgia,serif;letter-spacing:2px;">— 第 ${totalPages} / ${totalPages} 页 —</div>
+      <div style="font-size:13px;color:#b8a070;font-family:Georgia,serif;letter-spacing:2px;">— 第 ${totalPages} / ${totalPages} 页 —</div>
     </td></tr>
     <tr><td class="page-pad" style="padding:0 48px 20px;text-align:center;">
-      <div style="font-size:11px;color:#b8a070;letter-spacing:4px;font-family:Georgia,serif;">═══════════════ ✦ ═══════════════</div>
+      <div style="font-size:13px;color:#b8a070;letter-spacing:4px;font-family:Georgia,serif;">═══════════════ ✦ ═══════════════</div>
     </td></tr>
   </table>` : '';
 
@@ -255,7 +255,7 @@ function renderHtml(items, period, verse, cidMap, audioUrl) {
   ${versePage}
   <table width="100%" cellpadding="0" cellspacing="0" style="max-width:660px;margin:0 auto;">
     <tr><td style="text-align:center;padding:8px 0 24px;">
-      <div style="font-size:11px;color:#a09070;font-family:Georgia,serif;">由 AI 自动生成 · NewsDigest</div>
+      <div style="font-size:13px;color:#a09070;font-family:Georgia,serif;">由 AI 自动生成 · NewsDigest</div>
     </td></tr>
   </table>
 </body></html>`;

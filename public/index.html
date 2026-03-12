@@ -4,31 +4,27 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>NewsDigest</title>
+  <link href="https://fonts.googleapis.com/css2?family=UnifrakturMaguntia&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="/style.css">
 </head>
 <body>
 <div id="app">
   <!-- Sidebar -->
   <nav class="sidebar">
-    <div class="sidebar-logo"><span>📰</span> NewsDigest</div>
-    <a class="nav-item" :class="{active: page==='dashboard'}" @click="goto('dashboard')">
-      <span class="nav-icon">🏠</span> 仪表板
-    </a>
-    <a class="nav-item" :class="{active: page==='chat'}" @click="goto('chat')">
-      <span class="nav-icon">💬</span> AI 对话
-    </a>
-    <a class="nav-item" :class="{active: page==='preferences'}" @click="goto('preferences')">
-      <span class="nav-icon">⭐</span> 话题偏好
-    </a>
-    <a class="nav-item" :class="{active: page==='prompt'}" @click="goto('prompt')">
-      <span class="nav-icon">✏️</span> 提示词
-    </a>
-    <a class="nav-item" :class="{active: page==='history'}" @click="goto('history')">
-      <span class="nav-icon">📋</span> 历史推送
-    </a>
-    <a class="nav-item" :class="{active: page==='settings'}" @click="goto('settings')">
-      <span class="nav-icon">⚙️</span> 设置
-    </a>
+    <div class="sidebar-masthead">NewsDigest</div>
+    <div class="sidebar-clock">
+      <div class="clock-date">{{ clockDate }}</div>
+      <div class="clock-time">
+        <span class="clock-hm">{{ clockHM }}</span><span class="clock-sep">:</span><span class="clock-sec-wrap"><Transition name="tick"><span class="clock-sec" :key="clockSec">{{ clockSec }}</span></Transition></span>
+      </div>
+    </div>
+    <div class="sidebar-rule">══ ✦ ══</div>
+    <a class="nav-item" :class="{active: page==='dashboard'}" @click="goto('dashboard')">仪表板</a>
+    <a class="nav-item" :class="{active: page==='chat'}" @click="goto('chat')">AI 对话</a>
+    <a class="nav-item" :class="{active: page==='preferences'}" @click="goto('preferences')">话题偏好</a>
+    <a class="nav-item" :class="{active: page==='prompt'}" @click="goto('prompt')">提示词</a>
+    <a class="nav-item" :class="{active: page==='history'}" @click="goto('history')">历史推送</a>
+    <a class="nav-item" :class="{active: page==='settings'}" @click="goto('settings')">设置</a>
   </nav>
 
   <!-- Main content -->
